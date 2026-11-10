@@ -11,8 +11,8 @@ from sqlalchemy.orm import Session
 
 from app.exceptions.auth import InvalidCredentialsException
 from app.exceptions.face import FaceProcessingException
-from app.exceptions.user import UserAlreadyExistsException
-from app.models.user import Role, User
+from app.exceptions.user import InvalidFieldException, UserAlreadyExistsException
+from app.models.user import CARGO_MAX_LENGTH, Role, User
 from app.services.face import Embedder
 
 
@@ -49,6 +49,16 @@ def parse_user_id(user_id: uuid.UUID | str) -> uuid.UUID | None:
         return None
 
 
+# tira espaco das pontas. so espaco vira null
+def clean_cargo(cargo: str | None) -> str | None:
+    if cargo is None:
+        return None
+    value = cargo.strip()
+    if len(value) > CARGO_MAX_LENGTH:
+        raise InvalidFieldException(f"Cargo com mais de {CARGO_MAX_LENGTH} caracteres")
+    return value or None
+
+
 # unique do email tbm estoura aqui se duas request passarem juntas
 def commit_user(db: Session, user: User) -> User:
     try:
@@ -80,7 +90,9 @@ class AuthService:
         email: str,
         image: bytes,
         content_type: str | None,
+        cargo: str | None = None,
     ) -> User:
+        cargo = clean_cargo(cargo)
         existing = db.scalar(select(User).where(User.email == email))
         if existing is not None:
             raise UserAlreadyExistsException()
@@ -91,6 +103,7 @@ class AuthService:
             name=name,
             email=email,
             role=Role.GERAL,  # cadastro n escolhe role
+            cargo=cargo,
             embedding=list(embedding),
             created_at=now,
             updated_at=now,

@@ -10,6 +10,7 @@ class UserResponse(BaseModel):
     name: str
     email: str
     role: str
+    cargo: str | None
     created_at: datetime
     updated_at: datetime
 
@@ -21,6 +22,7 @@ class UserResponse(BaseModel):
             name=user.name,
             email=user.email,
             role=role_value(user.role),
+            cargo=user.cargo,
             created_at=user.created_at,
             updated_at=user.updated_at,
         )

@@ -17,11 +17,12 @@ async def register(
     request: Request,
     name: str = Form(...),
     email: str = Form(...),
+    cargo: str | None = Form(None),
     image: UploadFile | None = File(None),
     db: Session = Depends(get_db),
 ) -> RegisterResponse:
     # foto vai no forms junto com nome e email
-    payload = RegisterRequest(name=name, email=email)
+    payload = RegisterRequest(name=name, email=email, cargo=cargo)
     content, content_type = await read_required_image(image)
     service: AuthService = request.app.state.auth_service
     user = await service.register(
@@ -30,6 +31,7 @@ async def register(
         email=payload.email,
         image=content,
         content_type=content_type,
+        cargo=payload.cargo,
     )
     return RegisterResponse.from_user(user)
 

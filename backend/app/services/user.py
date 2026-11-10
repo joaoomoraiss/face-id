@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.exceptions.user import InvalidFieldException, UserAlreadyExistsException, UserNotFoundException
 from app.models.user import User
-from app.services.auth import commit_user, parse_user_id
+from app.services.auth import clean_cargo, commit_user, parse_user_id
 from app.services.face import Embedder
 
 
@@ -30,10 +30,12 @@ class UserService:
         email: str | None = None,
         image: bytes | None = None,
         content_type: str | None = None,
+        cargo: str | None = None,
     ) -> User:
         # patch vazio n faz sentido
-        if name is None and email is None and image is None:
+        if name is None and email is None and image is None and cargo is None:
             raise InvalidFieldException("Informe ao menos um campo")
+        new_cargo = clean_cargo(cargo)
         current = await self.get_user(db, user_id)
         new_name = current.name if name is None else name
         new_email = current.email if email is None else email
@@ -49,6 +51,9 @@ class UserService:
         current.name = new_name
         current.email = new_email
         current.embedding = list(embedding)
+        # None = n mandou, fica como ta
+        if cargo is not None:
+            current.cargo = new_cargo
         current.updated_at = self._clock()
         return commit_user(db, current)
 
@@ -66,6 +71,10 @@ class UserService:
             raise UserNotFoundException()
         db.delete(user)
         db.commit()
+
+    # sem paginacao, devolve todo mundo
+    async def list_all_users(self, db: Session) -> list[User]:
+        return list(db.scalars(select(User).order_by(User.created_at.desc())))
 
     async def list_users(self, db: Session, *, skip: int, limit: int) -> tuple[list[User], int]:
         total = db.scalar(select(func.count()).select_from(User)) or 0

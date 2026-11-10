@@ -1,7 +1,13 @@
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, read_limited_upload, read_required_image, require_admin
+from app.api.deps import (
+    get_current_user,
+    read_limited_upload,
+    read_required_image,
+    require_admin,
+    require_ministry,
+)
 from app.database import get_db
 from app.models.user import User
 from app.schemas.user_request import CreateUserRequest, ListUsersRequest, UpdateUserRequest
@@ -29,11 +35,12 @@ async def update_me(
     request: Request,
     name: str | None = Form(None),
     email: str | None = Form(None),
+    cargo: str | None = Form(None),
     image: UploadFile | None = File(None),
     current: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> UserResponse:
-    payload = UpdateUserRequest(name=name, email=email)
+    payload = UpdateUserRequest(name=name, email=email, cargo=cargo)
     content, content_type = await _optional_image(image)
     service: UserService = request.app.state.user_service
     updated = await service.update_user(
@@ -43,6 +50,7 @@ async def update_me(
         email=payload.email,
         image=content,
         content_type=content_type,
+        cargo=payload.cargo,
     )
     return UserResponse.from_user(updated)
 
@@ -61,16 +69,29 @@ async def list_users(
     return UserListResponse(items=[UserResponse.from_user(user) for user in items], total=total)
 
 
+# tem q ficar antes do /{user_id}, senao "all" vira id
+@router.get("/all", response_model=UserListResponse)
+async def list_all_users(
+    request: Request,
+    _ministry: User = Depends(require_ministry),
+    db: Session = Depends(get_db),
+) -> UserListResponse:
+    service: UserService = request.app.state.user_service
+    items = await service.list_all_users(db)
+    return UserListResponse(items=[UserResponse.from_user(user) for user in items], total=len(items))
+
+
 @router.post("", response_model=UserResponse, status_code=201)
 async def create_user(
     request: Request,
     name: str = Form(...),
     email: str = Form(...),
+    cargo: str | None = Form(None),
     image: UploadFile | None = File(None),
     _admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> UserResponse:
-    payload = CreateUserRequest(name=name, email=email)
+    payload = CreateUserRequest(name=name, email=email, cargo=cargo)
     content, content_type = await read_required_image(image)
     # mesmo fluxo do register, ent entra como user tbm
     service: AuthService = request.app.state.auth_service
@@ -80,6 +101,7 @@ async def create_user(
         email=payload.email,
         image=content,
         content_type=content_type,
+        cargo=payload.cargo,
     )
     return UserResponse.from_user(user)
 
@@ -102,11 +124,12 @@ async def update_user(
     request: Request,
     name: str | None = Form(None),
     email: str | None = Form(None),
+    cargo: str | None = Form(None),
     image: UploadFile | None = File(None),
     _admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> UserResponse:
-    payload = UpdateUserRequest(name=name, email=email)
+    payload = UpdateUserRequest(name=name, email=email, cargo=cargo)
     content, content_type = await _optional_image(image)
     service: UserService = request.app.state.user_service
     updated = await service.update_user(
@@ -116,6 +139,7 @@ async def update_user(
         email=payload.email,
         image=content,
         content_type=content_type,
+        cargo=payload.cargo,
     )
     return UserResponse.from_user(updated)
 

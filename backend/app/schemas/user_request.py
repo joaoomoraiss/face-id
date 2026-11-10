@@ -4,11 +4,13 @@ from pydantic import BaseModel, Field
 class CreateUserRequest(BaseModel):
     name: str
     email: str
+    cargo: str | None = None
 
 
 class UpdateUserRequest(BaseModel):
     name: str | None = None
     email: str | None = None
+    cargo: str | None = None
 
 
 class ListUsersRequest(BaseModel):

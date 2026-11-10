@@ -7,7 +7,7 @@ from app.exceptions.auth import ForbiddenException, UnauthenticatedException
 from app.exceptions.face import InvalidImageException
 from app.exceptions.user import UserNotFoundException
 from app.database import get_db
-from app.models.user import Role, User, role_value
+from app.models.user import ROLE_LEVEL, Role, User, role_value
 from app.security import decode_access_token
 from app.services.face import MAX_IMAGE_BYTES
 from app.services.user import UserService
@@ -57,12 +57,18 @@ async def get_current_user(
         raise UnauthenticatedException() from exc
 
 
-# director e ministry gerenciam usuarios. geral so mexe no proprio perfil
-MANAGER_ROLES = frozenset({Role.DIRECTOR.value, Role.MINISTRY.value})
-
-
-async def require_admin(current: User = Depends(get_current_user)) -> User:
+def _require_level(current: User, minimum: int) -> User:
     # verificar role do user no banco, n só a q veio no token
-    if role_value(current.role) not in MANAGER_ROLES:
+    if ROLE_LEVEL.get(role_value(current.role), 0) < minimum:
         raise ForbiddenException()
     return current
+
+
+# nivel 2+ (director e ministry) gerencia usuarios. geral so mexe no proprio perfil
+async def require_admin(current: User = Depends(get_current_user)) -> User:
+    return _require_level(current, ROLE_LEVEL[Role.DIRECTOR.value])
+
+
+# nivel 3, so ministry
+async def require_ministry(current: User = Depends(get_current_user)) -> User:
+    return _require_level(current, ROLE_LEVEL[Role.MINISTRY.value])

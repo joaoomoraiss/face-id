@@ -15,6 +15,16 @@ class Role(enum.Enum):
     MINISTRY = "MINISTRY PERMISSIONS"
 
 
+# nivel de acesso de cada role. quanto maior, mais pode
+ROLE_LEVEL = {
+    Role.GERAL.value: 1,
+    Role.DIRECTOR.value: 2,
+    Role.MINISTRY.value: 3,
+}
+
+CARGO_MAX_LENGTH = 120
+
+
 # grava o valor ("GERAL PERMISSIONS"...) no banco, n o nome GERAL/DIRECTOR/MINISTRY
 def _role_values(roles: list[Role]) -> list[str]:
     return [role.value for role in roles]
@@ -45,6 +55,8 @@ class User(Base):
         default=Role.GERAL,
         nullable=False,
     )
+    # cargo da pessoa (ex: professor). texto livre, n tem nada a ver com permissao
+    cargo: Mapped[str | None] = mapped_column(String(CARGO_MAX_LENGTH), nullable=True)
     # vetor do rosto (facenet), double precision[] no postgres
     embedding: Mapped[list[float]] = mapped_column(ARRAY(Float), nullable=False)
     created_at: Mapped[datetime] = mapped_column(

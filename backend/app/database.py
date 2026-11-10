@@ -1,7 +1,7 @@
 from collections.abc import Iterator
 
 from dotenv import load_dotenv
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
 from app.config import load_settings
@@ -39,6 +39,9 @@ def prepare_database(face_model_name: str) -> None:
 
     _connect()
     Base.metadata.create_all(bind=_engine, tables=[User.__table__, AppMeta.__table__])
+    # create_all n mexe em tabela q ja existe, ent a coluna nova entra na mao
+    with _engine.begin() as connection:
+        connection.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS cargo VARCHAR(120)"))
     db = _SessionLocal()
     try:
         ensure_recorded_face_model(db, face_model_name)
